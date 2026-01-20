@@ -63,6 +63,7 @@ def run_tests(
     _log(f"Loaded {len(filtered_rows)} rows across {len(scenarios)} scenarios")
 
     results = []
+    conversations = {}
     report_path = build_report_path()
     write_report(results, filtered_rows, report_path=report_path)
     _log(f"Initialized report at {report_path}")
@@ -74,6 +75,9 @@ def run_tests(
             )
             for step in steps:
                 prompt = step.get("user_prompt", "")
+                conversation_key = (scenario_id, platform_id)
+                history = conversations.get(conversation_key, [])
+                full_prompt = _build_conversation_prompt(history, prompt)
                 _log(
                     "Executing step "
                     f"scenario_id={scenario_id} platform_id={platform_id} "
@@ -83,7 +87,11 @@ def run_tests(
                 scoring_values = {}
                 scoring_error = ""
                 try:
-                    response, text_response = _execute_step(platform_id, prompt, config)
+                    response, text_response = _execute_step(
+                        platform_id,
+                        full_prompt,
+                        config,
+                    )
                     _maybe_throttle(platform_id)
                     scoring_values, scoring_error = _score_step(
                         scoring_platform_id,
@@ -122,6 +130,8 @@ def run_tests(
                         **scoring_values,
                     }
                 )
+                _append_conversation_turn(history, prompt, text_response)
+                conversations[conversation_key] = history
                 write_report(results, filtered_rows, report_path=report_path)
                 _log(
                     "Updated report after step "
@@ -366,6 +376,26 @@ def _extract_text_response(platform_id, response_text):
             return combined
 
     return response_text or ""
+
+
+def _build_conversation_prompt(history, user_prompt):
+    # Build a plain-text conversation transcript for stateless APIs.
+    parts = []
+    for turn in history:
+        role = turn.get("role")
+        content = turn.get("content", "")
+        if not content:
+            continue
+        label = "User" if role == "user" else "Assistant"
+        parts.append(f"{label}: {content}")
+    parts.append(f"User: {user_prompt}")
+    return "\n".join(parts)
+
+
+def _append_conversation_turn(history, user_prompt, assistant_response):
+    # Append a user/assistant turn pair to conversation history.
+    history.append({"role": "user", "content": user_prompt})
+    history.append({"role": "assistant", "content": assistant_response})
 
 
 def _normalize_scoring_value(value):
