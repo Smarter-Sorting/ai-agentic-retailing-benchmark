@@ -17,6 +17,8 @@ from shopping_paper_tests_loader import load_shopping_paper_tests_xlsx
 
 
 CLAUDE_DELAY_SECONDS = 15
+STEP_RETRY_COUNT = 2
+STEP_RETRY_BACKOFF_SECONDS = 10
 SCORING_FIELDS = [
     "identity_accuracy_score",
     "attribute_completeness_score",
@@ -87,10 +89,12 @@ def run_tests(
                 scoring_values = {}
                 scoring_error = ""
                 try:
-                    response, text_response = _execute_step(
+                    response, text_response = _execute_step_with_retries(
                         platform_id,
                         full_prompt,
                         config,
+                        scenario_id,
+                        step,
                     )
                     _maybe_throttle(platform_id)
                     scoring_values, scoring_error = _score_step(
@@ -152,6 +156,29 @@ def _execute_step(platform_id, prompt, config):
     response = execute_prompt(platform_id, prompt, config)
     text_response = _extract_text_response(platform_id, response)
     return response, text_response
+
+
+def _execute_step_with_retries(platform_id, prompt, config, scenario_id, step):
+    # Retry model calls a limited number of times before surfacing the error.
+    last_exc = None
+    total_attempts = STEP_RETRY_COUNT + 1
+    for attempt in range(1, total_attempts + 1):
+        try:
+            return _execute_step(platform_id, prompt, config)
+        except Exception as exc:
+            last_exc = exc
+            if attempt <= STEP_RETRY_COUNT:
+                _log(
+                    "Model call failed; retrying "
+                    f"attempt={attempt}/{total_attempts} "
+                    f"scenario_id={scenario_id} platform_id={platform_id} "
+                    f"step_id={step.get('step_id', '')} step_index={step.get('step_index', '')}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                time.sleep(STEP_RETRY_BACKOFF_SECONDS * attempt)
+                continue
+            break
+    raise last_exc
 
 
 def _maybe_throttle(platform_id):
