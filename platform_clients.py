@@ -145,7 +145,7 @@ def _post_json(url, api_key, payload, extra_headers=None, auth_header="Authoriza
         headers.update(extra_headers)
     request = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(request, timeout=60) as response:
+        with urllib.request.urlopen(request, timeout=120) as response:
             return response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         # Bubble up API error bodies for easier debugging.
