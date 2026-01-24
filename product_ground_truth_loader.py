@@ -5,10 +5,7 @@ import xml.etree.ElementTree as ET
 
 _NS = {"a": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 _CELL_REF_RE = re.compile(r"([A-Z]+)([0-9]+)")
-_DEFAULT_PATH = "input_data/product_ground_truth.xlsx"
-
-
-def load_product_ground_truth(path=_DEFAULT_PATH):
+def load_product_ground_truth(path):
     # Load ground-truth rows keyed by sku_id with comma-separated values.
     rows = _load_xlsx_rows(path)
     if not rows:

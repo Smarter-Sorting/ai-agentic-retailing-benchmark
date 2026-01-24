@@ -7,7 +7,7 @@ _NS = {"a": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 _CELL_REF_RE = re.compile(r"([A-Z]+)([0-9]+)")
 
 
-def load_shopping_paper_tests_xlsx(path):
+def load_tests_xlsx(path):
     #Load rows from the first worksheet of the shopping paper tests XLSX.
     with zipfile.ZipFile(path) as zf:
         shared_strings = _read_shared_strings(zf)

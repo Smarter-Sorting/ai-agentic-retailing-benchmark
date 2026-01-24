@@ -1,5 +1,5 @@
-import argparse
 import json
+import os
 import re
 import time
 import threading
@@ -15,7 +15,7 @@ from reporting import (
     write_report,
 )
 from product_ground_truth_loader import load_product_ground_truth
-from shopping_paper_tests_loader import load_shopping_paper_tests_xlsx
+from test_loader import load_tests_xlsx
 
 
 CLAUDE_DELAY_SECONDS = 10
@@ -36,9 +36,6 @@ SCORING_FIELDS = [
     "agent_failure_modes",
     "comments",
 ]
-SCORING_PLATFORM_ENV_KEY = "SCORING_PLATFORM_ID"
-DEFAULT_SCORING_PLATFORM_ID = "CHATGPT"
-SCORING_PROMPT_PATH = "input_data/scoring_prompt.txt"
 
 
 def _run_platform_steps(
@@ -135,17 +132,39 @@ def run_tests(
     platform_id=None,
     scenario_start=None,
     scenario_end=None,
+    ground_truth_path=None,
+    scoring_prompt_path=None,
+    scoring_platform_id=None,
 ):
     # Execute test steps and return a list of result dicts.
+    if not xlsx_path:
+        raise ValueError("xlsx_path is required.")
     _log(f"Loading test rows from {xlsx_path}")
     env = load_env_file(env_path)
-    scoring_platform_id = _get_scoring_platform_id(env)
-    scoring_config = load_platform_config(scoring_platform_id, env)
-    if scoring_platform_id and not scoring_config:
-        _log(f"Missing scoring config for platform_id={scoring_platform_id}; skipping scoring.")
-    scoring_prompt_template = _load_scoring_prompt_template(SCORING_PROMPT_PATH)
-    ground_truth_by_sku = load_product_ground_truth()
-    rows = load_shopping_paper_tests_xlsx(xlsx_path)
+    scoring_platform_id = scoring_platform_id or None
+    scoring_config = None
+    if scoring_platform_id:
+        scoring_config = load_platform_config(scoring_platform_id, env)
+        if not scoring_config:
+            _log(
+                f"Missing scoring config for platform_id={scoring_platform_id}; skipping scoring."
+            )
+            scoring_platform_id = None
+
+    if scoring_prompt_path and os.path.exists(scoring_prompt_path):
+        scoring_prompt_template = _load_scoring_prompt_template(scoring_prompt_path)
+    else:
+        scoring_prompt_template = ""
+        scoring_platform_id = None
+        _log("Scoring prompt missing; skipping scoring.")
+
+    if ground_truth_path and os.path.exists(ground_truth_path):
+        ground_truth_by_sku = load_product_ground_truth(ground_truth_path)
+    else:
+        ground_truth_by_sku = {}
+        scoring_platform_id = None
+        _log("Ground truth missing; skipping scoring.")
+    rows = load_tests_xlsx(xlsx_path)
     if platform_id:
         normalized = platform_id.strip().upper()
         rows = [row for row in rows if row.get("platform_id", "").upper() == normalized]
@@ -233,13 +252,6 @@ def _maybe_throttle(platform_id):
     # Apply per-platform rate limits.
     if platform_id.upper() == "CLAUDE":
         time.sleep(CLAUDE_DELAY_SECONDS)
-
-
-def _get_scoring_platform_id(env):
-    # Resolve scoring platform id with env override and default fallback.
-    value = env.get(SCORING_PLATFORM_ENV_KEY, DEFAULT_SCORING_PLATFORM_ID)
-    value = value.strip() if value else ""
-    return value or DEFAULT_SCORING_PLATFORM_ID
 
 
 def _score_step(
@@ -504,49 +516,3 @@ def _resolve_step_identity(scenario_id, platform_id, step):
             f"step_platform_id={step_platform_id} grouped_platform_id={platform_id}"
         )
     return step_scenario_id, step_platform_id
-
-
-
-def _parse_args():
-    parser = argparse.ArgumentParser(description="Run shopping paper tests.")
-    parser.add_argument(
-        "--xlsx",
-        default="input_data/shopping_paper_tests.xlsx",
-        help="Path to the XLSX test file.",
-    )
-    parser.add_argument(
-        "--env",
-        default=".env",
-        help="Path to the env file with platform credentials.",
-    )
-    parser.add_argument(
-        "--platform",
-        default=None,
-        help="Optional platform_id to run (e.g. GEMINI).",
-    )
-    parser.add_argument(
-        "--scenario-start",
-        default=None,
-        help="Optional scenario_id to start from (inclusive).",
-    )
-    parser.add_argument(
-        "--scenario-end",
-        default=None,
-        help="Optional scenario_id to stop at (inclusive).",
-    )
-    return parser.parse_args()
-
-
-def main():
-    args = _parse_args()
-    run_tests(
-        args.xlsx,
-        env_path=args.env,
-        platform_id=args.platform,
-        scenario_start=args.scenario_start,
-        scenario_end=args.scenario_end,
-    )
-
-
-if __name__ == "__main__":
-    main()
