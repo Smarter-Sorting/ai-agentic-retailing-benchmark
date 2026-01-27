@@ -26,7 +26,8 @@ python main.py --setting retailing-benchmark --env .env
 CLI parameters:
 - `--setting`: Dataset setting name that selects a bundle of inputs (tests XLSX, ground truth, scoring prompt). Default: `retailing-benchmark`.
 - `--env`: Path to the env file with platform credentials. Default: `.env`.
-- `--platform`: Optional platform id to run (e.g. `GEMINI`). Case-insensitive.
+- `--platform`: Optional platform id(s) to run (e.g. `GEMINI` or `GEMINI,CLAUDE`). Case-insensitive.
+- `--exclude-platform`: Optional comma-separated platform ids to skip (e.g. `GEMINI,CLAUDE`).
 - `--scenario-start`: Optional scenario_id to start from (inclusive).
 - `--scenario-end`: Optional scenario_id to stop at (inclusive).
 

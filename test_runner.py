@@ -38,10 +38,9 @@ SCORING_FIELDS = [
 ]
 
 
-def _run_platform_steps(
-    scenario_id,
+def _run_platform_sequence(
     platform_id,
-    steps,
+    scenario_steps,
     env,
     scoring_platform_id,
     scoring_config,
@@ -53,77 +52,78 @@ def _run_platform_steps(
     report_lock,
 ):
     config = load_platform_config(platform_id, env)
-    _log(
-        f"Running scenario_id={scenario_id} platform_id={platform_id} steps={len(steps)}"
-    )
-    history = []
-    for step in steps:
-        step_scenario_id, step_platform_id = _resolve_step_identity(
-            scenario_id, platform_id, step
-        )
-        prompt = step.get("user_prompt", "")
-        full_prompt = _build_conversation_prompt(history, prompt)
+    for scenario_id, steps in scenario_steps:
         _log(
-            "Executing step "
-            f"scenario_id={step_scenario_id} platform_id={step_platform_id} "
-            f"step_id={step.get('step_id', '')} step_index={step.get('step_index', '')}"
+            f"Running scenario_id={scenario_id} platform_id={platform_id} steps={len(steps)}"
         )
-        comments = ""
-        scoring_values = {}
-        scoring_error = ""
-        try:
-            response, text_response = _execute_step_with_retries(
-                step_platform_id,
-                full_prompt,
-                config,
-                step_scenario_id,
-                step,
+        history = []
+        for step in steps:
+            step_scenario_id, step_platform_id = _resolve_step_identity(
+                scenario_id, platform_id, step
             )
-            _maybe_throttle(step_platform_id)
-            scoring_values, scoring_error = _score_step(
-                scoring_platform_id,
-                scoring_config,
-                scoring_prompt_template,
-                ground_truth_by_sku,
-                step,
-                text_response,
-            )
-            comments = scoring_values.pop("comments", "")
-        except Exception as exc:
-            response = ""
-            text_response = ""
-            comments = f"Unexpected error: {type(exc).__name__}: {exc}"
+            prompt = step.get("user_prompt", "")
+            full_prompt = _build_conversation_prompt(history, prompt)
             _log(
-                "Unexpected error while executing step "
+                "Executing step "
                 f"scenario_id={step_scenario_id} platform_id={step_platform_id} "
-                f"step_id={step.get('step_id', '')} step_index={step.get('step_index', '')}: "
-                f"{type(exc).__name__}: {exc}"
+                f"step_id={step.get('step_id', '')} step_index={step.get('step_index', '')}"
             )
-        if scoring_error:
-            comments = _join_comment(comments, scoring_error)
-        result = {
-            "scenario_id": step_scenario_id,
-            "platform_id": step_platform_id,
-            "step_id": step.get("step_id", ""),
-            "step_index": step.get("step_index", ""),
-            "user_prompt": prompt,
-            "model_response": text_response,
-            "full_model_response": response,
-            "text_model_response": text_response,
-            "comments": comments,
-            "run_id": step.get("run_id", ""),
-            "step_type": step.get("step_type", ""),
-            **scoring_values,
-        }
-        _append_conversation_turn(history, prompt, text_response)
-        with report_lock:
-            results.append(result)
-            write_report(results, filtered_rows, report_path=report_path)
-        _log(
-            "Updated report after step "
-            f"scenario_id={step_scenario_id} platform_id={step_platform_id} "
-            f"step_id={step.get('step_id', '')} step_index={step.get('step_index', '')}"
-        )
+            comments = ""
+            scoring_values = {}
+            scoring_error = ""
+            try:
+                response, text_response = _execute_step_with_retries(
+                    step_platform_id,
+                    full_prompt,
+                    config,
+                    step_scenario_id,
+                    step,
+                )
+                _maybe_throttle(step_platform_id)
+                scoring_values, scoring_error = _score_step(
+                    scoring_platform_id,
+                    scoring_config,
+                    scoring_prompt_template,
+                    ground_truth_by_sku,
+                    step,
+                    text_response,
+                )
+                comments = scoring_values.pop("comments", "")
+            except Exception as exc:
+                response = ""
+                text_response = ""
+                comments = f"Unexpected error: {type(exc).__name__}: {exc}"
+                _log(
+                    "Unexpected error while executing step "
+                    f"scenario_id={step_scenario_id} platform_id={step_platform_id} "
+                    f"step_id={step.get('step_id', '')} step_index={step.get('step_index', '')}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+            if scoring_error:
+                comments = _join_comment(comments, scoring_error)
+            result = {
+                "scenario_id": step_scenario_id,
+                "platform_id": step_platform_id,
+                "step_id": step.get("step_id", ""),
+                "step_index": step.get("step_index", ""),
+                "user_prompt": prompt,
+                "model_response": text_response,
+                "full_model_response": response,
+                "text_model_response": text_response,
+                "comments": comments,
+                "run_id": step.get("run_id", ""),
+                "step_type": step.get("step_type", ""),
+                **scoring_values,
+            }
+            _append_conversation_turn(history, prompt, text_response)
+            with report_lock:
+                results.append(result)
+                write_report(results, filtered_rows, report_path=report_path)
+            _log(
+                "Updated report after step "
+                f"scenario_id={step_scenario_id} platform_id={step_platform_id} "
+                f"step_id={step.get('step_id', '')} step_index={step.get('step_index', '')}"
+            )
 
 
 def run_tests(
@@ -135,6 +135,7 @@ def run_tests(
     ground_truth_path=None,
     scoring_prompt_path=None,
     scoring_platform_id=None,
+    excluded_platforms=None,
 ):
     # Execute test steps and return a list of result dicts.
     if not xlsx_path:
@@ -165,10 +166,27 @@ def run_tests(
         scoring_platform_id = None
         _log("Ground truth missing; skipping scoring.")
     rows = load_tests_xlsx(xlsx_path)
+    excluded_platforms = {p.upper() for p in (excluded_platforms or set())}
     if platform_id:
-        normalized = platform_id.strip().upper()
-        rows = [row for row in rows if row.get("platform_id", "").upper() == normalized]
-        _log(f"Filtered rows to platform_id={normalized}: {len(rows)} rows")
+        if isinstance(platform_id, (set, list, tuple)):
+            platform_items = platform_id
+        else:
+            platform_items = [platform_id]
+        normalized = {item.strip().upper() for item in platform_items if item}
+        rows = [
+            row for row in rows if row.get("platform_id", "").upper() in normalized
+        ]
+        _log(f"Filtered rows to platform_id={sorted(normalized)}: {len(rows)} rows")
+    if excluded_platforms:
+        rows = [
+            row
+            for row in rows
+            if row.get("platform_id", "").upper() not in excluded_platforms
+        ]
+        _log(
+            "Filtered rows by excluded platforms "
+            f"{sorted(excluded_platforms)}: {len(rows)} rows"
+        )
     scenarios = _group_by_scenario(rows, scenario_start, scenario_end)
     filtered_rows = _flatten_scenarios(scenarios)
     _log(f"Loaded {len(filtered_rows)} rows across {len(scenarios)} scenarios")
@@ -178,37 +196,36 @@ def run_tests(
     report_path = build_report_path()
     write_report(results, filtered_rows, report_path=report_path)
     _log(f"Initialized report at {report_path}")
-    for scenario_id, platforms in scenarios.items():
-        max_workers = max(1, len(platforms))
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_platform = {}
-            for platform_id, steps in platforms.items():
-                future = executor.submit(
-                    _run_platform_steps,
-                    scenario_id,
-                    platform_id,
-                    steps,
-                    env,
-                    scoring_platform_id,
-                    scoring_config,
-                    scoring_prompt_template,
-                    ground_truth_by_sku,
-                    results,
-                    filtered_rows,
-                    report_path,
-                    report_lock,
+    platform_sequences = _build_platform_sequences(scenarios)
+    max_workers = max(1, len(platform_sequences))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_platform = {}
+        for platform_id, scenario_steps in platform_sequences.items():
+            future = executor.submit(
+                _run_platform_sequence,
+                platform_id,
+                scenario_steps,
+                env,
+                scoring_platform_id,
+                scoring_config,
+                scoring_prompt_template,
+                ground_truth_by_sku,
+                results,
+                filtered_rows,
+                report_path,
+                report_lock,
+            )
+            future_to_platform[future] = platform_id
+        for future in as_completed(future_to_platform):
+            platform_id = future_to_platform[future]
+            try:
+                future.result()
+            except Exception as exc:
+                _log(
+                    "Unexpected error while running platform "
+                    f"platform_id={platform_id}: "
+                    f"{type(exc).__name__}: {exc}"
                 )
-                future_to_platform[future] = platform_id
-            for future in as_completed(future_to_platform):
-                platform_id = future_to_platform[future]
-                try:
-                    future.result()
-                except Exception as exc:
-                    _log(
-                        "Unexpected error while running platform "
-                        f"scenario_id={scenario_id} platform_id={platform_id}: "
-                        f"{type(exc).__name__}: {exc}"
-                    )
     _log(f"Wrote report for {len(results)} steps")
     return results
 
@@ -414,6 +431,17 @@ def _flatten_scenarios(scenarios):
         for platform_id in sorted(platforms.keys()):
             rows.extend(platforms[platform_id])
     return rows
+
+
+def _build_platform_sequences(scenarios):
+    # Build ordered scenario lists per platform to avoid cross-platform blocking.
+    platform_sequences = {}
+    for scenario_id in sorted(scenarios.keys()):
+        platforms = scenarios[scenario_id]
+        for platform_id in sorted(platforms.keys()):
+            platform_sequences.setdefault(platform_id, [])
+            platform_sequences[platform_id].append((scenario_id, platforms[platform_id]))
+    return platform_sequences
 
 
 def _to_float(value):
