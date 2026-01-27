@@ -10,8 +10,7 @@ DEFAULT_SCORING_PLATFORM_ID = "CHATGPT"
 DATASET_CONFIGS = {
     "retailing-benchmark": {
         "tests_xlsx": "retailing-benchmark/shopping_paper_tests.xlsx",
-        "ground_truth_xlsx": "retailing-benchmark/product_ground_truth.xlsx",
-        "scoring_prompt": "retailing-benchmark/scoring_prompt.txt",
+       
     }
 }
 

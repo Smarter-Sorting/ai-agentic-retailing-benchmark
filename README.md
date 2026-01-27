@@ -85,15 +85,18 @@ docker run --rm -v "$PWD/.env:/app/.env" ai-agentic-retailing-benchmark python m
 - `test_runner.py`: Test runner logic (grouping, execution, scoring, reporting).
 - `platform_clients.py`: Platform-specific API calls for each model/provider.
 - `config.py`: Loads env values and platform configuration.
-- `test_loader.py`: XLSX test case loader.
-- `product_ground_truth_loader.py`: Product ground truth loader.
-- `reporting.py`: Report assembly and XLSX writing orchestration.
-- `report_xlsx.py`: Low-level XLSX writer.
+- `input_loader/`: Input loading utilities.
+- `input_loader/test_loader.py`: XLSX test case loader.
+- `input_loader/product_ground_truth_loader.py`: Product ground truth loader.
+- `reporter/`: Reporting package.
+- `reporter/reporting.py`: Report assembly and XLSX writing orchestration.
+- `reporter/report_xlsx.py`: Low-level XLSX writer.
 - `retailing-benchmark/`: Test inputs and prompts for the retailing benchmark setting.
 - `retailing-benchmark/shopping_paper_tests.xlsx`: Test scenarios and steps.
 - `retailing-benchmark/product_ground_truth.xlsx`: Product ground truth data.
 - `retailing-benchmark/scoring_prompt.txt`: Scoring prompt template.
 - `reports/`: Output reports (timestamped XLSX files).
+- `results/`: Benchmark artifacts (paper + scored XLSX) for 100 multi-step scenarios across common models.
 - `.env`: Platform credentials (not committed).
 
 ## Dataset Settings

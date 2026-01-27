@@ -7,15 +7,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import load_env_file, load_platform_config
 from platform_clients import execute_prompt, execute_gemini_prompt
-from reporting import (
+from reporter.reporting import (
     build_report_path,
     extract_fieldnames,
     format_scenario,
     result_key,
     write_report,
 )
-from product_ground_truth_loader import load_product_ground_truth
-from test_loader import load_tests_xlsx
+from input_loader.product_ground_truth_loader import load_product_ground_truth
+from input_loader.test_loader import load_tests_xlsx
 
 
 CLAUDE_DELAY_SECONDS = 10

@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from report_xlsx import write_xlsx_report
+from reporter.report_xlsx import write_xlsx_report
 
 
 SCORING_FIELDS = [
