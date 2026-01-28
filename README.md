@@ -115,3 +115,14 @@ To add a new setting:
 - The report preserves the input XLSX columns and fills `full_model_response` and
   `text_model_response` with the latest run outputs.
  - Reports are updated after each step to preserve partial progress if a run fails.
+
+## .env Configuration
+The `.env` file is not committed. Create one locally with per-platform credentials:
+
+```
+{MODEL}_BASE_URL={url}
+{MODEL}_API_KEY={api-key}
+{MODEL}_MODEL={model_version}
+```
+
+Supported models: `CHATGPT`, `PERPLEX`, `CLAUDE`, `GEMINI`, `COPILOT`.
