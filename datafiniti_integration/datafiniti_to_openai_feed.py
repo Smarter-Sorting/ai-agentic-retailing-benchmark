@@ -26,8 +26,9 @@ The high‑level workflow is:
 
 The script avoids external dependencies and uses only the Python standard
 library so that it can run in constrained environments.  When interacting with
-external services, the script will print informative error messages instead
-of crashing.
+external services, helper functions may raise :class:`RuntimeError` on failure;
+it is the responsibility of the caller or CLI layer to handle these and present
+user‑friendly messages as appropriate.
 
 Example usage:
 
