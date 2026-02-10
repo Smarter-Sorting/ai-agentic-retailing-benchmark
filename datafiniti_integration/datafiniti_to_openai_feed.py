@@ -3,12 +3,12 @@
 via SmarterSorting and converting the result into the official ChatGPT
 product feed format.
 
-This module can be run as a stand‑alone script or imported as a library.  It is
-intended to provide a simple command‑line experience for retailers and brands
-who wish to use Datafiniti product data as the foundation for the agentic
-shopping benchmark and for feeding their catalog to the ChatGPT Commerce API.
+This module provides library functions and helpers for working with Datafiniti
+and SmarterSorting. A standalone command‑line wrapper is provided in
+datafiniti_integration/main.py (run via `python -m datafiniti_integration.main`)
+for users who prefer a CLI experience.
 
-The high‑level workflow is:
+High‑level workflow (library usage):
 
 1. Perform a search against the Datafiniti product API using your API key from
    a .env file and boolean query parameters.  You can specify the number of
@@ -24,29 +24,24 @@ The high‑level workflow is:
 4. Write the feed as a newline‑delimited JSON file (`.jsonl`) or as a CSV
    depending on your preference.  The output can optionally be gzip‑compressed.
 
-The script avoids external dependencies and uses only the Python standard
-library so that it can run in constrained environments.  When interacting with
-external services, helper functions may raise :class:`RuntimeError` on failure;
-it is the responsibility of the caller or CLI layer to handle these and present
-user‑friendly messages as appropriate.
+CLI usage:
 
-Example usage:
+The CLI examples previously shown in this module are available via the
+project's CLI entrypoint. Example invocations:
 
-```bash
-python datafiniti_integration/datafiniti_to_openai_feed.py \
-  --query "categories:shoes AND categories:women" \
-  --num-records 50 \
-  --output-file my_feed.jsonl
+     python -m datafiniti_integration.main \
+        --query "categories:shoes AND categories:women" \
+        --num-records 50 \
+        --output-file my_feed.jsonl
 
-# With enrichment enabled:
-python datafiniti_integration/datafiniti_to_openai_feed.py \
-  --enrich \
-  --query "gtins:*" \
-  --num-records 10 \
-  --output-file feed_with_enrichment.jsonl.gz
-```
+     # With enrichment enabled:
+     python -m datafiniti_integration.main \
+        --enrich \
+        --query "gtins:*" \
+        --num-records 10 \
+        --output-file feed_with_enrichment.jsonl.gz
 
-See `README.md` for detailed instructions.
+See datafiniti_integration/main.py and README.md for detailed instructions.
 """
 
 from __future__ import annotations

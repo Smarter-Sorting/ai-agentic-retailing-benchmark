@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import json
 from typing import Any, Dict, List, Optional
 
 if __package__ is None:
@@ -98,10 +99,14 @@ def main(argv: Optional[List[str]] = None) -> None:
                         product_name=rec.get("name"),
                         user_id=args.seller_name,
                     )
+                    logging.info("Enrichment succeeded for UPC %s.", upc)
+                    logging.info("Enrichment response for UPC %s: %s", upc, _truncate_log_payload(enrich_payload))
                 except Exception as exc:
                     logging.warning("Enrichment failed for UPC %s: %s", upc, exc)
             elif upc and not smartersorting_api_key:
-                logging.debug("Skipping enrichment for UPC %s because SMARTERSORTING_API_KEY is missing.", upc)
+                logging.info("Skipping enrichment for UPC %s because SMARTERSORTING_API_KEY is missing.", upc)
+            else:
+                logging.info("Skipping enrichment because no UPC/GTIN was found for record %s.", rec.get("id", "<unknown>"))
         feed_record = convert_record_to_feed(rec, enrich=enrich_payload, seller_name=args.seller_name)
         feed_records.append(feed_record)
 
@@ -109,6 +114,16 @@ def main(argv: Optional[List[str]] = None) -> None:
     logging.info("Writing feed to %s ...", args.output_file)
     write_feed(feed_records, args.output_file, compress=compress, fmt=args.format)
     logging.info("Done.")
+
+
+def _truncate_log_payload(payload: Dict[str, Any], limit: int = 500) -> str:
+    try:
+        text = json.dumps(payload, ensure_ascii=False)
+    except Exception:
+        return "<unserializable payload>"
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}... [truncated]"
 
 
 if __name__ == "__main__":
