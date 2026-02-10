@@ -256,8 +256,15 @@ def convert_record_to_feed(
     feed["is_eligible_search"] = "true"
     feed["is_eligible_checkout"] = "false"
 
-    # Unique item identifier.  Prefer Datafiniti id, fallback to first key.
-    feed["item_id"] = rec.get("id") or (rec.get("keys") or [""])[0]
+    # Unique item identifier.  Prefer Datafiniti id, fallback to key(s).
+    keys_value = rec.get("keys")
+    if isinstance(keys_value, list) and keys_value:
+        fallback_item_id = keys_value[0]
+    elif isinstance(keys_value, str):
+        fallback_item_id = keys_value
+    else:
+        fallback_item_id = ""
+    feed["item_id"] = rec.get("id") or fallback_item_id
 
     # Identifiers: GTIN/UPC/EAN.
     gtins = None
