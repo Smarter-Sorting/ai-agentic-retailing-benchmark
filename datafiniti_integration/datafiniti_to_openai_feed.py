@@ -268,7 +268,7 @@ def convert_record_to_feed(
 
     # Identifiers: GTIN/UPC/EAN.
     gtins = None
-    for field in ("gtins", "upc", "ean", "ean13", "ean8", "upc", "upca", "upce"):
+    for field in ("gtins", "upc", "ean", "ean13", "ean8", "upca", "upce"):
         value = rec.get(field)
         if value:
             gtins = value
