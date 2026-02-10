@@ -3,10 +3,12 @@
 via SmarterSorting and converting the result into the official ChatGPT
 product feed format.
 
-This module can be run as a stand‑alone script or imported as a library.  It is
-intended to provide a simple command‑line experience for retailers and brands
-who wish to use Datafiniti product data as the foundation for the agentic
-shopping benchmark and for feeding their catalog to the ChatGPT Commerce API.
+This module provides library functions for working with Datafiniti product data.
+For command-line usage, see `datafiniti_integration/main.py` (or run as
+`python -m datafiniti_integration.main`). The CLI provides a simple command‑line
+experience for retailers and brands who wish to use Datafiniti product data as
+the foundation for the agentic shopping benchmark and for feeding their catalog
+to the ChatGPT Commerce API.
 
 The high‑level workflow is:
 
@@ -30,16 +32,16 @@ external services, helper functions may raise :class:`RuntimeError` on failure;
 it is the responsibility of the caller or CLI layer to handle these and present
 user‑friendly messages as appropriate.
 
-Example usage:
+Example CLI usage:
 
 ```bash
-python datafiniti_integration/datafiniti_to_openai_feed.py \
+python datafiniti_integration/main.py \
   --query "categories:shoes AND categories:women" \
   --num-records 50 \
   --output-file my_feed.jsonl
 
-# With enrichment enabled:
-python datafiniti_integration/datafiniti_to_openai_feed.py \
+# Or run as a module:
+python -m datafiniti_integration.main \
   --enrich \
   --query "gtins:*" \
   --num-records 10 \
