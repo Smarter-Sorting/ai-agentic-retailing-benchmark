@@ -167,11 +167,13 @@ Script location:
 datafiniti_integration/datafiniti_to_openai_feed.py
 ```
 
+The script reads API keys from a `.env` file by default. Use `--env` to point
+to a different file if needed.
+
 ### Basic usage
 
 ```bash
 python datafiniti_integration/datafiniti_to_openai_feed.py \
-  --datafiniti-api-key YOUR_DATAFINITI_KEY \
   --query "categories:shoes AND categories:women" \
   --num-records 50 \
   --output-file products.jsonl
@@ -181,8 +183,6 @@ python datafiniti_integration/datafiniti_to_openai_feed.py \
 
 ```bash
 python datafiniti_integration/datafiniti_to_openai_feed.py \
-  --datafiniti-api-key YOUR_DATAFINITI_KEY \
-  --smartersorting-api-key YOUR_SMARTERSORTING_KEY \
   --enrich \
   --query "gtins:*" \
   --seller-name YOUR_BRAND \
@@ -238,13 +238,14 @@ Tests are:
 ## Environment Variables (`.env`)
 
 ```env
+# Required for the Datafiniti feed script
+DATAFINITI_API_KEY=...
+
 # Platform keys
 CHATGPT_API_KEY=...
 CHATGPT_MODEL=gpt-4o
 
 # Datafiniti
-DATAFINITI_API_KEY=...
-
 # SmarterSorting
 SMARTERSORTING_API_KEY=...
 ```

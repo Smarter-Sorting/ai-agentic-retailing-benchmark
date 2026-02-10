@@ -10,8 +10,9 @@ shopping benchmark and for feeding their catalog to the ChatGPT Commerce API.
 
 The high‑level workflow is:
 
-1. Perform a search against the Datafiniti product API using your API key and
-   boolean query parameters.  You can specify the number of records to
+1. Perform a search against the Datafiniti product API using your API key from
+   a .env file and boolean query parameters.  You can specify the number of
+   records to
    retrieve (`--num-records`) and optionally request a bulk download.
 2. (Optional) For each product returned, call the SmarterSorting public
    enrichment API to normalize and augment the record.  Enrichment is keyed
@@ -32,15 +33,12 @@ Example usage:
 
 ```bash
 python datafiniti_integration/datafiniti_to_openai_feed.py \
-  --datafiniti-api-key YOUR_DATAFINITI_TOKEN \
   --query "categories:shoes AND categories:women" \
   --num-records 50 \
   --output-file my_feed.jsonl
 
 # With enrichment enabled:
 python datafiniti_integration/datafiniti_to_openai_feed.py \
-  --datafiniti-api-key YOUR_DATAFINITI_TOKEN \
-  --smartersorting-api-key YOUR_SMARTERSORTING_TOKEN \
   --enrich \
   --query "gtins:*" \
   --num-records 10 \
@@ -52,57 +50,26 @@ See `README.md` for detailed instructions.
 
 from __future__ import annotations
 
-import argparse
 import csv
 import gzip
 import json
+import logging
 import os
-import sys
 import time
-import urllib.error
-import urllib.parse
 import urllib.request
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+from datafiniti_integration.env_utils import load_env_file
+from datafiniti_integration.http_utils import http_get_json, http_post_json
 
 # Base URLs for Datafiniti and SmarterSorting.
 DATAFINITI_SEARCH_URL = "https://api.datafiniti.co/v4/products/search"
 DATAFINITI_DOWNLOAD_URL = "https://api.datafiniti.co/v4/downloads/{id}"
 SMARTERSORTING_URL = "https://ui-enrichment-service-api-production-905356271911.us-central1.run.app/api/enrich_public"
-
-
-def _http_post_json(url: str, payload: Dict[str, Any], headers: Dict[str, str], timeout: int = 60) -> Dict[str, Any]:
-    """Send a JSON POST request and return the parsed JSON body.
-
-    Args:
-        url: The fully qualified endpoint.
-        payload: Data to JSON‑encode and send in the request body.
-        headers: Additional headers such as Authorization and Content‑Type.
-        timeout: Timeout in seconds for the HTTP request.
-
-    Returns:
-        Parsed JSON response.
-
-    Raises:
-        RuntimeError: If the response cannot be decoded as JSON or a HTTP error occurs.
-    """
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            resp_body = resp.read()
-    except urllib.error.HTTPError as e:
-        # Attempt to decode the error body for a human readable message.
-        try:
-            error_body = e.read().decode("utf-8")
-        except Exception:
-            error_body = ""
-        raise RuntimeError(f"HTTP {e.code} error when calling {url}: {error_body}".strip()) from e
-    except Exception as e:
-        raise RuntimeError(f"Network error when calling {url}: {e}") from e
-    try:
-        return json.loads(resp_body.decode("utf-8"))
-    except Exception as exc:
-        raise RuntimeError(f"Invalid JSON response from {url}") from exc
+DATAFINITI_FETCH_FORMAT = "JSON"
+LOG_FORMAT = "%(levelname)s: %(message)s"
+DEFAULT_POLL_SECONDS = 600
+POLL_INTERVAL_SECONDS = 2
 
 
 def datafiniti_search(
@@ -112,6 +79,7 @@ def datafiniti_search(
     view: Optional[str] = None,
     download: bool = False,
     fmt: str = "JSON",
+    poll_seconds: int = DEFAULT_POLL_SECONDS,
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     """Search Datafiniti products API and return records.
 
@@ -151,7 +119,7 @@ def datafiniti_search(
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
     }
-    resp_json = _http_post_json(DATAFINITI_SEARCH_URL, payload, headers)
+    resp_json = http_post_json(DATAFINITI_SEARCH_URL, payload, headers)
 
     # Non‑download search returns data immediately.
     if not download:
@@ -161,27 +129,43 @@ def datafiniti_search(
         return records, None
 
     # Download flow: poll until status=completed.
-    download_id = str(resp_json.get("id") or resp_json.get("_id") or resp_json.get("id"))  # handle both fields
+    download_id = str(resp_json.get("id") or resp_json.get("_id") or "")
     if not download_id:
         raise RuntimeError("No download ID returned from Datafiniti.")
 
     # Poll for completion.
     poll_url = DATAFINITI_DOWNLOAD_URL.format(id=download_id)
-    for attempt in range(30):
+    max_attempts = max(1, poll_seconds // POLL_INTERVAL_SECONDS)
+    consecutive_errors = 0
+    max_consecutive_errors = max(3, max_attempts // 10)
+    for attempt in range(max_attempts):
         try:
-            # GET request – use urllib directly
-            req = urllib.request.Request(poll_url, headers=headers, method="GET")
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                body = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            time.sleep(2)
+            body = http_get_json(poll_url, headers, timeout=30)
+            consecutive_errors = 0
+        except RuntimeError:
+            consecutive_errors += 1
+            logging.warning(
+                "Polling download %s failed (%d/%d consecutive errors). Retrying...",
+                download_id,
+                consecutive_errors,
+                max_consecutive_errors,
+            )
+            if consecutive_errors >= max_consecutive_errors:
+                raise RuntimeError(
+                    f"Polling download {download_id} failed after {consecutive_errors} consecutive errors."
+                )
+            time.sleep(POLL_INTERVAL_SECONDS)
             continue
         status = body.get("status", "").lower()
+        if status in {"failed", "error"}:
+            raise RuntimeError(f"Download {download_id} failed with status '{status}'.")
         if status == "completed":
             break
-        time.sleep(2)
+        time.sleep(POLL_INTERVAL_SECONDS)
     else:
-        raise RuntimeError(f"Download {download_id} did not complete in time.")
+        raise RuntimeError(
+            f"Download {download_id} did not complete in time after {max_attempts * POLL_INTERVAL_SECONDS} seconds."
+        )
 
     result_urls = body.get("results") or []
     records: List[Dict[str, Any]] = []
@@ -195,7 +179,8 @@ def datafiniti_search(
                         continue
                     try:
                         records.append(json.loads(line))
-                    except Exception:
+                    except Exception as exc:
+                        logging.warning("Skipping malformed JSON line from download results: %s", exc)
                         continue
         except Exception as exc:
             raise RuntimeError(f"Failed to download results from {url}: {exc}") from exc
@@ -207,7 +192,7 @@ def smartersorting_enrich(
     upc: str,
     product_name: Optional[str] = None,
     user_id: Optional[str] = None,
-    enable_async_enrichment: bool = False,
+    enable_async_enrichment: Optional[bool] = None,
     re_enrich: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """Call the SmarterSorting enrichment API for a single UPC.
@@ -217,7 +202,7 @@ def smartersorting_enrich(
         upc: The UPC/GTIN of the product to enrich.
         product_name: Optional product name to assist enrichment.
         user_id: Optional user identifier for caching.
-        enable_async_enrichment: Switch to asynchronous enrichment mode.
+        enable_async_enrichment: Switch to asynchronous enrichment mode when explicitly set.
         re_enrich: Force re‑enrichment even if cached.
 
     Returns:
@@ -242,7 +227,7 @@ def smartersorting_enrich(
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
     }
-    return _http_post_json(SMARTERSORTING_URL, payload, headers)
+    return http_post_json(SMARTERSORTING_URL, payload, headers)
 
 
 def convert_record_to_feed(
@@ -455,69 +440,14 @@ def write_feed(
                 writer.writerow(rec)
 
 
-def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    """Parse command‑line arguments for the script."""
-    parser = argparse.ArgumentParser(description="Retrieve Datafiniti products, optionally enrich, and output a ChatGPT feed.")
-    parser.add_argument("--datafiniti-api-key", required=True, help="Datafiniti API token.")
-    parser.add_argument("--smartersorting-api-key", help="SmarterSorting enrichment API token (optional). If provided, enrichment will be attempted when --enrich is set.")
-    parser.add_argument("--openai-api-key", help="OpenAI API key (optional, not used directly by this script).")
-    parser.add_argument("--query", required=True, help="Datafiniti query string. See Datafiniti docs for syntax.")
-    parser.add_argument("--num-records", type=int, default=10, help="Maximum number of records to fetch (default: 10). For bulk download specify larger value and add --download.")
-    parser.add_argument("--view", default=None, help="Optional Datafiniti view (e.g. product_flat_prices).")
-    parser.add_argument("--download", action="store_true", help="Initiate a bulk download instead of a preview search.")
-    parser.add_argument("--enrich", action="store_true", help="Enable SmarterSorting enrichment (requires --smartersorting-api-key).")
-    parser.add_argument("--seller-name", default=None, help="Optional seller or retailer name to include in the feed.")
-    parser.add_argument("--output-file", required=True, help="Path to write the output feed (JSONL or CSV). Use .gz extension to enable compression.")
-    parser.add_argument("--format", default="jsonl", choices=["jsonl", "csv"], help="Output feed format (jsonl or csv). Default: jsonl.")
-    return parser.parse_args(argv)
-
-
-def main(argv: Optional[List[str]] = None) -> None:
-    args = parse_args(argv)
-
-    # Determine compression from filename.
-    compress = args.output_file.endswith(".gz")
-
-    # Fetch products from Datafiniti.
-    print(f"Querying Datafiniti for '{args.query}' ...", file=sys.stderr)
-    records, download_id = datafiniti_search(
-        api_key=args.datafiniti_api_key,
-        query=args.query,
-        num_records=args.num_records,
-        view=args.view,
-        download=args.download,
-        fmt="JSON" if args.format == "jsonl" else "CSV",
-    )
-    print(f"Retrieved {len(records)} record(s) from Datafiniti.", file=sys.stderr)
-    if args.download and download_id:
-        print(f"Download job ID: {download_id}", file=sys.stderr)
-
-    # Prepare feed records.
-    feed_records: List[Dict[str, Any]] = []
-    for rec in records:
-        if not isinstance(rec, dict):
-            continue
-        enrich_payload: Optional[Dict[str, Any]] = None
-        if args.enrich:
-            upc = rec.get("upc") or (rec.get("gtins") or [None])[0]
-            if upc and args.smartersorting_api_key:
-                try:
-                    enrich_payload = smartersorting_enrich(
-                        api_key=args.smartersorting_api_key,
-                        upc=str(upc),
-                        product_name=rec.get("name"),
-                        user_id=args.seller_name,
-                    )
-                except Exception as exc:
-                    print(f"Enrichment failed for UPC {upc}: {exc}", file=sys.stderr)
-        feed_record = convert_record_to_feed(rec, enrich=enrich_payload, seller_name=args.seller_name)
-        feed_records.append(feed_record)
-
-    # Write feed to disk.
-    print(f"Writing feed to {args.output_file} ...", file=sys.stderr)
-    write_feed(feed_records, args.output_file, compress=compress, fmt=args.format)
-    print("Done.", file=sys.stderr)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()
+__all__ = [
+    "DATAFINITI_FETCH_FORMAT",
+    "DEFAULT_POLL_SECONDS",
+    "LOG_FORMAT",
+    "POLL_INTERVAL_SECONDS",
+    "convert_record_to_feed",
+    "datafiniti_search",
+    "load_env_file",
+    "smartersorting_enrich",
+    "write_feed",
+]
