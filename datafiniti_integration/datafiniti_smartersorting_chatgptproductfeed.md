@@ -164,7 +164,7 @@ The integration attempts to populate **all possible fields** when data is availa
 Script location:
 
 ```
-datafiniti_integration/datafiniti_to_openai_feed.py
+datafiniti_integration/main.py
 ```
 
 The script reads API keys from a `.env` file by default. Use `--env` to point
@@ -173,7 +173,7 @@ to a different file if needed.
 ### Basic usage
 
 ```bash
-python datafiniti_integration/datafiniti_to_openai_feed.py \
+python datafiniti_integration/main.py \
   --query "categories:shoes AND categories:women" \
   --num-records 50 \
   --output-file products.jsonl
@@ -182,7 +182,7 @@ python datafiniti_integration/datafiniti_to_openai_feed.py \
 ### With SmarterSorting enrichment enabled
 
 ```bash
-python datafiniti_integration/datafiniti_to_openai_feed.py \
+python datafiniti_integration/main.py \
   --enrich \
   --query "gtins:*" \
   --seller-name YOUR_BRAND \
@@ -259,6 +259,7 @@ SMARTERSORTING_API_KEY=...
 ├── main.py
 ├── test_runner.py
 ├── datafiniti_integration/
+│   ├── main.py
 │   ├── datafiniti_to_openai_feed.py
 │   └── test_datafiniti_to_openai_feed.py
 ├── retailing-benchmark/
