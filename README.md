@@ -123,6 +123,60 @@ The `.env` file is not committed. Create one locally with per-platform credentia
 {MODEL}_BASE_URL={url}
 {MODEL}_API_KEY={api-key}
 {MODEL}_MODEL={model_version}
+{MODEL}_TIER={tier}  # For ChatGPT: "paid" or "unpaid"
 ```
 
 Supported models: `CHATGPT`, `PERPLEX`, `CLAUDE`, `GEMINI`, `COPILOT`.
+
+## New Features (Phase 2)
+
+### Browser-Based Testing
+The `browser_testing/` module provides infrastructure for browser-based test execution:
+- Use `browser_testing/browser_client.py` for browser-driven test scenarios
+- Requires Playwright or Selenium for full implementation
+- Supports headless and headed modes
+
+### ChatGPT Tier Testing (Paid vs Unpaid)
+Compare ChatGPT performance across subscription tiers:
+- Set `CHATGPT_TIER=paid` or `CHATGPT_TIER=unpaid` in `.env`
+- Results include tier information for analysis
+- Filter and compare by tier in the report viewer
+
+### Electronics Deep Dive Dataset
+Focused dataset for in-depth electronics category analysis:
+- Location: `electronics-deep-dive/`
+- Run with: `--setting electronics-deep-dive`
+- Includes electronics-specific scoring criteria
+- Tests technical specifications, comparisons, and regulatory compliance
+
+### Benchmark Report Viewer
+Interactive web-based report viewer:
+- Location: `viewer/index.html`
+- Open in any modern web browser
+- Features:
+  - Interactive filtering by platform, tier, and scenario
+  - Real-time statistics and success rates
+  - Platform comparison visualizations
+  - Export filtered results to JSON
+  - Support for XLSX and JSON report formats
+
+#### Using the Report Viewer
+1. Generate JSON from XLSX report:
+   ```bash
+   python generate_json_report.py reports/test_report_20250101_120000.xlsx
+   ```
+
+2. Open the viewer:
+   ```bash
+   # On macOS
+   open viewer/index.html
+   
+   # On Linux
+   xdg-open viewer/index.html
+   
+   # Or use a simple HTTP server
+   python -m http.server 8000
+   # Then visit http://localhost:8000/viewer/
+   ```
+
+3. Load your JSON report in the browser or use sample data to explore features.

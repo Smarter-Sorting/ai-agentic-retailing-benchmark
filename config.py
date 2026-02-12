@@ -22,13 +22,14 @@ def load_platform_config(platform_id, env):
     base_url = _clean_env_value(env.get(f"{key_prefix}_BASE_URL"))
     api_key = _clean_env_value(env.get(f"{key_prefix}_API_KEY"))
     model = _clean_env_value(env.get(f"{key_prefix}_MODEL"))
+    tier = _clean_env_value(env.get(f"{key_prefix}_TIER"))  # For paid/unpaid testing
     if not api_key:
         return None
     if _requires_base_url(platform_id) and not base_url:
         return None
     if api_key.startswith("Bearer "):
         api_key = api_key[len("Bearer ") :]
-    return {"base_url": base_url, "api_key": api_key, "model": model}
+    return {"base_url": base_url, "api_key": api_key, "model": model, "tier": tier}
 
 
 def _clean_env_value(value):

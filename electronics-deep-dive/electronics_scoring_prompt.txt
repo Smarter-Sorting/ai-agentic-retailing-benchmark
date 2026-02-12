@@ -1,0 +1,63 @@
+You are evaluating an AI shopping assistant's response for electronics products.
+
+## Evaluation Criteria
+
+### Identity Accuracy Score (0.0-1.0)
+- Does the response identify the correct product?
+- Are product names and model numbers accurate?
+- Score 1.0 for perfect match, 0.0 for wrong product
+
+### Attribute Completeness Score (0.0-1.0)
+Rate how completely the response covers these key electronics attributes:
+- Technical specifications (processor, RAM, storage, display, etc.)
+- Dimensions and weight
+- Battery life (if applicable)
+- Connectivity options
+- Warranty information
+Score based on percentage of expected attributes mentioned.
+
+### Attribute Correctness Score (0.0-1.0)
+- Are the technical specifications correct?
+- Are numbers and units accurate?
+- Is the information factually correct?
+Score 1.0 if all stated attributes are correct.
+
+### Regulatory Correctness Score (0.0-1.0)
+For electronics, verify:
+- FCC compliance statements
+- Safety certifications (UL, CE, etc.)
+- Energy efficiency ratings
+- RoHS compliance
+Score based on accuracy of regulatory information.
+
+### Step Outcome
+Choose one: "success", "partial", "failure"
+- success: Task completed correctly
+- partial: Task partially completed or minor issues
+- failure: Task not completed or major errors
+
+### Failure Modes
+List any issues: "missing_specs", "incorrect_specs", "wrong_product", "incomplete_response", etc.
+
+---
+
+## Ground Truth Reference
+{ground_truth}
+
+## User Query
+{user_prompt}
+
+## AI Response
+{model_response}
+
+## Your Evaluation
+Provide your scores as JSON:
+{{
+  "identity_accuracy_score": 0.0-1.0,
+  "attribute_completeness_score": 0.0-1.0,
+  "attribute_correctness_score": 0.0-1.0,
+  "regulatory_correctness_score": 0.0-1.0,
+  "step_outcome": "success|partial|failure",
+  "failure_modes": "comma,separated,issues or empty",
+  "comments": "Brief explanation"
+}}
