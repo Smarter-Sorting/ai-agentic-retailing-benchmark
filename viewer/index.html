@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agentic Retailing Benchmark Report Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .controls {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .controls h2 {
+            margin-bottom: 1rem;
+            color: #667eea;
+        }
+        
+        .filter-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .filter-item label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #555;
+        }
+        
+        .filter-item select,
+        .filter-item input {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .filter-item input[type="file"] {
+            padding: 0.3rem;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+        
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .results-section {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .results-section h2 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        .results-table {
+            width: 100%;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        thead {
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+        }
+        
+        th {
+            padding: 1rem 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .score-cell {
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .score-high {
+            color: #10b981;
+        }
+        
+        .score-medium {
+            color: #f59e0b;
+        }
+        
+        .score-low {
+            color: #ef4444;
+        }
+        
+        .platform-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: #e0e7ff;
+            color: #4c51bf;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 3rem;
+            color: #999;
+        }
+        
+        .comparison-view {
+            margin-top: 2rem;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .chart-container h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 AI Agentic Retailing Benchmark Report Viewer</h1>
+        <p>Interactive visualization and analysis of AI shopping agent performance</p>
+    </div>
+    
+    <div class="container">
+        <!-- Controls Section -->
+        <div class="controls">
+            <h2>Load & Filter Results</h2>
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label for="reportFile">Upload Report (XLSX/JSON)</label>
+                    <input type="file" id="reportFile" accept=".xlsx,.json" />
+                </div>
+                <div class="filter-item">
+                    <label for="platformFilter">Filter by Platform</label>
+                    <select id="platformFilter">
+                        <option value="">All Platforms</option>
+                        <option value="CHATGPT">ChatGPT</option>
+                        <option value="CLAUDE">Claude</option>
+                        <option value="GEMINI">Gemini</option>
+                        <option value="PERPLEX">Perplexity</option>
+                        <option value="COPILOT">Copilot</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="tierFilter">ChatGPT Tier</label>
+                    <select id="tierFilter">
+                        <option value="">All Tiers</option>
+                        <option value="paid">Paid</option>
+                        <option value="unpaid">Unpaid</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="scenarioFilter">Filter by Scenario</label>
+                    <input type="text" id="scenarioFilter" placeholder="Enter scenario ID" />
+                </div>
+            </div>
+            <div class="button-group">
+                <button class="btn-primary" onclick="loadSampleData()">Load Sample Data</button>
+                <button class="btn-secondary" onclick="resetFilters()">Reset Filters</button>
+                <button class="btn-secondary" onclick="exportResults()">Export Filtered Results</button>
+            </div>
+        </div>
+        
+        <!-- Statistics Cards -->
+        <div class="stats-cards" id="statsCards">
+            <div class="stat-card">
+                <h3 id="totalTests">0</h3>
+                <p>Total Tests</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="avgAccuracy">0%</h3>
+                <p>Avg Accuracy</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="platformCount">0</h3>
+                <p>Platforms Tested</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="successRate">0%</h3>
+                <p>Success Rate</p>
+            </div>
+        </div>
+        
+        <!-- Results Table -->
+        <div class="results-section">
+            <h2>Test Results</h2>
+            <div class="results-table">
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Scenario ID</th>
+                            <th>Platform</th>
+                            <th>Tier</th>
+                            <th>Step</th>
+                            <th>Accuracy</th>
+                            <th>Completeness</th>
+                            <th>Correctness</th>
+                            <th>Outcome</th>
+                            <th>Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                        <tr>
+                            <td colspan="9" class="no-data">
+                                No data loaded. Upload a report or load sample data to begin.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Comparison Charts -->
+        <div class="comparison-view">
+            <div class="chart-container">
+                <h3>Platform Comparison</h3>
+                <canvas id="platformChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Score Distribution</h3>
+                <canvas id="scoreChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Global data storage
+        let allResults = [];
+        let filteredResults = [];
+        
+        // Sample data for demonstration
+        function loadSampleData() {
+            allResults = [
+                {
+                    scenario_id: "Q001",
+                    platform_id: "CHATGPT",
+                    tier: "paid",
+                    step_id: "1",
+                    step_index: "1",
+                    identity_accuracy_score: "0.95",
+                    attribute_completeness_score: "0.88",
+                    attribute_correctness_score: "0.92",
+                    step_outcome: "success",
+                    comments: "Good performance"
+                },
+                {
+                    scenario_id: "Q001",
+                    platform_id: "CLAUDE",
+                    tier: "",
+                    step_id: "1",
+                    step_index: "1",
+                    identity_accuracy_score: "0.91",
+                    attribute_completeness_score: "0.85",
+                    attribute_correctness_score: "0.89",
+                    step_outcome: "success",
+                    comments: ""
+                },
+                {
+                    scenario_id: "Q002",
+                    platform_id: "CHATGPT",
+                    tier: "unpaid",
+                    step_id: "1",
+                    step_index: "1",
+                    identity_accuracy_score: "0.78",
+                    attribute_completeness_score: "0.72",
+                    attribute_correctness_score: "0.75",
+                    step_outcome: "partial",
+                    comments: "Limited response"
+                },
+                {
+                    scenario_id: "Q002",
+                    platform_id: "GEMINI",
+                    tier: "",
+                    step_id: "1",
+                    step_index: "1",
+                    identity_accuracy_score: "0.87",
+                    attribute_completeness_score: "0.83",
+                    attribute_correctness_score: "0.86",
+                    step_outcome: "success",
+                    comments: ""
+                }
+            ];
+            
+            applyFilters();
+            updateDisplay();
+        }
+        
+        // Apply filters to results
+        function applyFilters() {
+            const platformFilter = document.getElementById('platformFilter').value;
+            const tierFilter = document.getElementById('tierFilter').value;
+            const scenarioFilter = document.getElementById('scenarioFilter').value.toLowerCase();
+            
+            filteredResults = allResults.filter(result => {
+                if (platformFilter && result.platform_id !== platformFilter) return false;
+                if (tierFilter && result.tier !== tierFilter) return false;
+                if (scenarioFilter && !result.scenario_id.toLowerCase().includes(scenarioFilter)) return false;
+                return true;
+            });
+        }
+        
+        // Update all displays
+        function updateDisplay() {
+            updateStats();
+            updateTable();
+            updateCharts();
+        }
+        
+        // Update statistics cards
+        function updateStats() {
+            const totalTests = filteredResults.length;
+            document.getElementById('totalTests').textContent = totalTests;
+            
+            if (totalTests > 0) {
+                const avgAccuracy = filteredResults.reduce((sum, r) => 
+                    sum + (parseFloat(r.identity_accuracy_score) || 0), 0) / totalTests;
+                document.getElementById('avgAccuracy').textContent = (avgAccuracy * 100).toFixed(1) + '%';
+                
+                const platforms = new Set(filteredResults.map(r => r.platform_id));
+                document.getElementById('platformCount').textContent = platforms.size;
+                
+                const successCount = filteredResults.filter(r => r.step_outcome === 'success').length;
+                document.getElementById('successRate').textContent = ((successCount / totalTests) * 100).toFixed(1) + '%';
+            } else {
+                document.getElementById('avgAccuracy').textContent = '0%';
+                document.getElementById('platformCount').textContent = '0';
+                document.getElementById('successRate').textContent = '0%';
+            }
+        }
+        
+        // Update results table
+        function updateTable() {
+            const tbody = document.getElementById('resultsBody');
+            
+            if (filteredResults.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="no-data">No results match the current filters.</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filteredResults.map(result => {
+                const accuracy = parseFloat(result.identity_accuracy_score) || 0;
+                const completeness = parseFloat(result.attribute_completeness_score) || 0;
+                const correctness = parseFloat(result.attribute_correctness_score) || 0;
+                
+                return `
+                    <tr>
+                        <td>${result.scenario_id || '-'}</td>
+                        <td><span class="platform-badge">${result.platform_id || '-'}</span></td>
+                        <td>${result.tier || '-'}</td>
+                        <td>${result.step_index || '-'}</td>
+                        <td class="score-cell ${getScoreClass(accuracy)}">${(accuracy * 100).toFixed(0)}%</td>
+                        <td class="score-cell ${getScoreClass(completeness)}">${(completeness * 100).toFixed(0)}%</td>
+                        <td class="score-cell ${getScoreClass(correctness)}">${(correctness * 100).toFixed(0)}%</td>
+                        <td>${result.step_outcome || '-'}</td>
+                        <td>${result.comments || '-'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Get score color class
+        function getScoreClass(score) {
+            if (score >= 0.8) return 'score-high';
+            if (score >= 0.6) return 'score-medium';
+            return 'score-low';
+        }
+        
+        // Update charts (placeholder - would need Chart.js for real implementation)
+        function updateCharts() {
+            // Note: Real implementation would use Chart.js or similar library
+            console.log('Charts would be rendered here with Chart.js');
+        }
+        
+        // Reset all filters
+        function resetFilters() {
+            document.getElementById('platformFilter').value = '';
+            document.getElementById('tierFilter').value = '';
+            document.getElementById('scenarioFilter').value = '';
+            applyFilters();
+            updateDisplay();
+        }
+        
+        // Export filtered results
+        function exportResults() {
+            if (filteredResults.length === 0) {
+                alert('No results to export');
+                return;
+            }
+            
+            const dataStr = JSON.stringify(filteredResults, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `filtered_results_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // File upload handler
+        document.getElementById('reportFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    // For JSON files
+                    if (file.name.endsWith('.json')) {
+                        allResults = JSON.parse(event.target.result);
+                        applyFilters();
+                        updateDisplay();
+                    } else {
+                        alert('XLSX parsing requires a library like SheetJS. For now, export to JSON from Excel and upload that.');
+                    }
+                } catch (error) {
+                    alert('Error loading file: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        });
+        
+        // Add event listeners for filter changes
+        document.getElementById('platformFilter').addEventListener('change', () => {
+            applyFilters();
+            updateDisplay();
+        });
+        
+        document.getElementById('tierFilter').addEventListener('change', () => {
+            applyFilters();
+            updateDisplay();
+        });
+        
+        document.getElementById('scenarioFilter').addEventListener('input', () => {
+            applyFilters();
+            updateDisplay();
+        });
+    </script>
+</body>
+</html>
