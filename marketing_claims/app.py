@@ -64,6 +64,22 @@ def evaluate_claims():
     if not llm_api_key:
         return jsonify({"error": "LLM API key is required"}), 400
 
+    if custom_prompt:
+        try:
+            custom_prompt.format(
+                upc="",
+                product_name="",
+                marketing_claims="",
+                enrichment_data="",
+            )
+        except (KeyError, ValueError) as e:
+            return jsonify({
+                "error": (
+                    f"Invalid evaluation_prompt template ({e}). "
+                    "Allowed placeholders: {upc}, {product_name}, {marketing_claims}, {enrichment_data}."
+                )
+            }), 400
+
     results = []
     for product in products:
         result = _evaluate_single_product(
