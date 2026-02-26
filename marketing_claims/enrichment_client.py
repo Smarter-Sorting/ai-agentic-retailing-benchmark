@@ -1,8 +1,9 @@
 """Client for the SmarterSorting Enrichment API.
 
 Uses the POST /api/enrich_public endpoint as documented in the
-datafiniti_integration module. Falls back to a GET-based search
-if no UPC is provided.
+datafiniti_integration module to enrich products either by UPC
+(via ``enrich_product``) or by product name when a UPC is not
+available (via ``enrich_product_by_name``).
 """
 
 import json
