@@ -70,13 +70,40 @@ const App = {
         tbody.innerHTML = '';
         this.products.forEach((p, i) => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${i + 1}</td>
-                <td>${this.escapeHtml(p.upc)}</td>
-                <td>${this.escapeHtml(p.product_name)}</td>
-                <td title="${this.escapeHtml(p.marketing_claims)}">${this.escapeHtml(p.marketing_claims.substring(0, 120))}${p.marketing_claims.length > 120 ? '...' : ''}</td>
-                <td><button class="btn btn-sm btn-secondary" onclick="App.removeProduct(${i})">Remove</button></td>
-            `;
+
+            // Index cell
+            const indexTd = document.createElement('td');
+            indexTd.textContent = String(i + 1);
+            tr.appendChild(indexTd);
+
+            // UPC cell
+            const upcTd = document.createElement('td');
+            upcTd.textContent = p.upc || '';
+            tr.appendChild(upcTd);
+
+            // Product name cell
+            const nameTd = document.createElement('td');
+            nameTd.textContent = p.product_name || '';
+            tr.appendChild(nameTd);
+
+            // Marketing claims cell
+            const claimsTd = document.createElement('td');
+            const fullClaims = p.marketing_claims || '';
+            claimsTd.setAttribute('title', fullClaims);
+            const truncatedClaims = fullClaims.length > 120
+                ? fullClaims.substring(0, 120) + '...'
+                : fullClaims;
+            claimsTd.textContent = truncatedClaims;
+            tr.appendChild(claimsTd);
+
+            // Actions cell with Remove button
+            const actionTd = document.createElement('td');
+            const removeButton = document.createElement('button');
+            removeButton.className = 'btn btn-sm btn-secondary';
+            removeButton.textContent = 'Remove';
+            removeButton.addEventListener('click', () => this.removeProduct(i));
+            actionTd.appendChild(removeButton);
+            tr.appendChild(actionTd);
             tbody.appendChild(tr);
         });
         document.getElementById('product-count').textContent = this.products.length;
