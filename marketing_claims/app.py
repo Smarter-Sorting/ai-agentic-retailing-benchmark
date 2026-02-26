@@ -215,18 +215,36 @@ def _evaluate_single_product(product, llm_provider, llm_api_key,
     else:
         llm_error = llm_result.get("error", "Unknown LLM error")
 
-    return {
+    # Build base response payload (fields used by the frontend)
+    response = {
         "upc": upc,
         "product_name": product_name,
         "marketing_claims": marketing_claims,
-        "enrichment_data": enrichment_data,
         "enrichment_error": enrichment_error,
         "analysis": analysis,
         "llm_error": llm_error,
-        "llm_raw_text": llm_result.get("text", "") if llm_result.get("success") else "",
     }
 
+    # Optionally include large/sensitive debugging fields if explicitly requested.
+    include_debug = False
+    try:
+        # Prefer an explicit flag in the JSON body (e.g., {"debug": true})
+        payload = request.get_json(silent=True) or {}
+        include_debug = bool(
+            payload.get("debug")
+            or payload.get("include_debug")
+            or request.args.get("debug")
+            or request.args.get("include_debug")
+        )
+    except Exception:
+        # If anything goes wrong determining debug mode, fall back to safe default.
+        include_debug = False
 
+    if include_debug:
+        response["enrichment_data"] = enrichment_data
+        response["llm_raw_text"] = llm_result.get("text", "") if llm_result.get("success") else ""
+
+    return response
 def _compute_statistics(results):
     """Compute aggregate statistics from evaluation results."""
     total = len(results)
