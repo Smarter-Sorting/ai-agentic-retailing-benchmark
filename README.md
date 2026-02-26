@@ -123,6 +123,11 @@ The `.env` file is not committed. Create one locally with per-platform credentia
 {MODEL}_BASE_URL={url}
 {MODEL}_API_KEY={api-key}
 {MODEL}_MODEL={model_version}
+
+# SmarterSorting enrichment (required when using enrichment features)
+SMARTERSORTING_API_KEY={api-key}
+SMARTERSORTING_URL={full-url-to-enrich-endpoint}
+SMARTERSORTING_BASE_URL={base-url-for-enrichment-api}
 ```
 
 Supported models: `CHATGPT`, `PERPLEX`, `CLAUDE`, `GEMINI`, `COPILOT`.

@@ -245,9 +245,10 @@ DATAFINITI_API_KEY=...
 CHATGPT_API_KEY=...
 CHATGPT_MODEL=gpt-4o
 
-# Datafiniti
-# SmarterSorting
+# SmarterSorting enrichment (required when using --enrich)
 SMARTERSORTING_API_KEY=...
+SMARTERSORTING_URL=...          # Full URL to the enrichment endpoint (used by datafiniti_integration)
+SMARTERSORTING_BASE_URL=...     # Base URL for the enrichment API (used by marketing_claims)
 ```
 
 ---

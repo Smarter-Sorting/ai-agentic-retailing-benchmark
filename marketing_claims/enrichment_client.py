@@ -8,13 +8,14 @@ available (via ``enrich_product_by_name``).
 
 import json
 import logging
+import os
 import urllib.request
 import urllib.error
 import urllib.parse
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BASE_URL = "https://ui-enrichment-service-api-production-905356271911.us-central1.run.app"
+DEFAULT_BASE_URL = os.environ.get("SMARTERSORTING_BASE_URL", "")
 
 
 def enrich_product(upc, auth_token, base_url=None, product_name=None):
@@ -30,6 +31,12 @@ def enrich_product(upc, auth_token, base_url=None, product_name=None):
         dict with enrichment data or error information.
     """
     base = (base_url or DEFAULT_BASE_URL).rstrip("/")
+    if not base:
+        return {
+            "success": False,
+            "error": "SMARTERSORTING_BASE_URL environment variable is not set. "
+                     "Please set it to the SmarterSorting enrichment base URL.",
+        }
     url = f"{base}/api/enrich_public"
 
     auth_value = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
@@ -76,6 +83,12 @@ def enrich_product_by_name(product_name, auth_token, base_url=None):
         dict with enrichment data or error information.
     """
     base = (base_url or DEFAULT_BASE_URL).rstrip("/")
+    if not base:
+        return {
+            "success": False,
+            "error": "SMARTERSORTING_BASE_URL environment variable is not set. "
+                     "Please set it to the SmarterSorting enrichment base URL.",
+        }
     url = f"{base}/api/enrich_public"
 
     auth_value = auth_token if auth_token.startswith("Bearer ") else f"Bearer {auth_token}"
