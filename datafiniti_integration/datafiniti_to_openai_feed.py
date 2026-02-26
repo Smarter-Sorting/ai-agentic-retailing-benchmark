@@ -61,7 +61,7 @@ from datafiniti_integration.http_utils import http_get_json, http_post_json
 # Base URLs for Datafiniti and SmarterSorting.
 DATAFINITI_SEARCH_URL = "https://api.datafiniti.co/v4/products/search"
 DATAFINITI_DOWNLOAD_URL = "https://api.datafiniti.co/v4/downloads/{id}"
-SMARTERSORTING_URL = "https://ui-enrichment-service-api-production-905356271911.us-central1.run.app/api/enrich_public"
+SMARTERSORTING_URL = os.environ.get("SMARTERSORTING_URL", "")
 DATAFINITI_FETCH_FORMAT = "JSON"
 LOG_FORMAT = "%(levelname)s: %(message)s"
 DEFAULT_POLL_SECONDS = 600
@@ -209,6 +209,12 @@ def smartersorting_enrich(
     Raises:
         RuntimeError: If the API call fails.
     """
+    if not SMARTERSORTING_URL:
+        raise RuntimeError(
+            "SMARTERSORTING_URL environment variable is not set. "
+            "Please set it to the SmarterSorting enrichment endpoint URL."
+        )
+
     payload: Dict[str, Any] = {"upc": upc}
     if product_name:
         payload["product_name"] = product_name
