@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing Claims Product Truth Evaluation Suite — SmarterSorting</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ============================================================
+     HEADER
+     ============================================================ -->
+<header class="header">
+    <div class="header-inner">
+        <div class="header-brand">
+            <div>
+                <div class="header-logo">Smarter<span>Sorting</span></div>
+                <div class="header-subtitle">Marketing Claims Product Truth Evaluation Suite</div>
+            </div>
+        </div>
+        <div class="header-badge">Product Truth &bull; Powered by AI</div>
+    </div>
+</header>
+
+<!-- Toast container -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- Progress overlay -->
+<div id="progress-overlay" class="progress-overlay">
+    <div class="progress-modal">
+        <div class="spinner"></div>
+        <div id="progress-text" class="progress-text">Evaluating products...</div>
+        <div id="progress-sub" class="progress-sub">This may take a moment</div>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- ============================================================
+         CONFIGURATION PANEL
+         ============================================================ -->
+    <div class="config-panel">
+        <div class="panel-header">
+            <h3>&#9881; Configuration &amp; API Keys</h3>
+            <span class="chevron">&#9660;</span>
+        </div>
+        <div class="panel-body">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>LLM Provider</label>
+                    <select id="llm-provider">
+                        <option value="anthropic">Anthropic (Claude)</option>
+                        <option value="gemini">Google (Gemini)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>LLM API Key <span class="hint">(required)</span></label>
+                    <input type="password" id="llm-api-key" placeholder="Enter your Anthropic or Gemini API key">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>SmarterSorting Enrichment Auth Token <span class="hint">(optional)</span></label>
+                    <input type="password" id="enrichment-token" placeholder="Bearer token for enrichment API">
+                </div>
+                <div class="form-group">
+                    <label>Enrichment API Base URL <span class="hint">(required for enrichment)</span></label>
+                    <input type="url" id="enrichment-url" placeholder="https://your-enrichment-api.example.com">
+                </div>
+            </div>
+
+            <!-- Prompt editor -->
+            <div class="form-group">
+                <label>
+                    Evaluation Prompt Template
+                    <span class="hint">(customize or leave blank for default)</span>
+                    <button class="btn btn-sm btn-secondary" style="margin-left:8px" onclick="App.resetPrompt()">Reset to Default</button>
+                </label>
+                <div class="prompt-editor">
+                    <textarea id="evaluation-prompt" rows="8" placeholder="Leave blank to use the default marketing claims evaluation prompt..."></textarea>
+                    <span id="prompt-char-count" class="char-count">0 chars</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         UPLOAD SECTION
+         ============================================================ -->
+    <div class="card" style="margin-bottom:24px">
+        <div class="card-header">
+            <h3>&#128194; Upload Products</h3>
+            <button class="btn btn-sm btn-secondary" onclick="App.loadSampleData()">Load Sample Data</button>
+        </div>
+        <div class="card-body">
+            <div id="upload-zone" class="upload-zone">
+                <div class="icon">&#128196;</div>
+                <div class="title">Drop your CSV file here or click to browse</div>
+                <div class="subtitle">Expected columns: upc, product_name, marketing_claims</div>
+                <input type="file" id="csv-file-input" accept=".csv" style="display:none">
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         PRODUCTS TABLE
+         ============================================================ -->
+    <div id="products-section" class="card" style="margin-bottom:24px;display:none">
+        <div class="card-header">
+            <h3>&#128220; Products (<span id="product-count">0</span>)</h3>
+            <div style="display:flex;gap:8px">
+                <button class="btn btn-primary" onclick="App.runEvaluation()">&#9889; Run Evaluation</button>
+            </div>
+        </div>
+        <div class="card-body" style="padding:0;overflow-x:auto">
+            <table class="products-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>UPC</th>
+                        <th>Product Name</th>
+                        <th>Marketing Claims</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="products-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         STATISTICS SUMMARY
+         ============================================================ -->
+    <div id="results-section" style="display:none">
+        <h2 class="section-heading"><span class="icon">&#128202;</span> Evaluation Results</h2>
+
+        <div class="grid-4" style="margin-bottom:24px">
+            <div class="card stat-card">
+                <div class="stat-number" id="stat-total">0</div>
+                <div class="stat-label">Products Evaluated</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" id="stat-valid" style="color:var(--ss-green)">0</div>
+                <div class="stat-label">Valid</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" id="stat-invalid" style="color:var(--ss-red)">0</div>
+                <div class="stat-label">Invalid</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" id="stat-partial" style="color:var(--ss-orange)">0</div>
+                <div class="stat-label">Partially Valid</div>
+            </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:24px">
+            <div class="card stat-card">
+                <div class="stat-number" id="stat-boost" style="color:var(--ss-green)">+0%</div>
+                <div class="stat-label">Avg Conversion Boost (Improved Claims)</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" id="stat-claims" style="color:var(--ss-blue)">0</div>
+                <div class="stat-label">Total Claims Evaluated</div>
+            </div>
+        </div>
+
+        <!-- Results table -->
+        <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+                <h3>&#128269; Detailed Results</h3>
+                <button class="btn btn-sm btn-success" onclick="App.downloadImproved()">&#11015; Download Improved Claims CSV</button>
+            </div>
+            <div class="card-body" style="padding:0;overflow-x:auto">
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Product</th>
+                            <th>Verdict</th>
+                            <th>Grade</th>
+                            <th>Conv. Boost</th>
+                            <th>Claims</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         INFOGRAPHICS & CHARTS
+         ============================================================ -->
+    <div id="charts-section" style="display:none">
+        <h2 class="section-heading"><span class="icon">&#128200;</span> Product Truth Infographics</h2>
+
+        <!-- Tabs for chart sections -->
+        <div class="tabs" data-group="charts">
+            <div class="tab active" data-target="tab-overview">Overview</div>
+            <div class="tab" data-target="tab-network">Ingredient Network</div>
+            <div class="tab" data-target="tab-wordcloud">Word Clouds</div>
+            <div class="tab" data-target="tab-bias">Product Analysis</div>
+            <div class="tab" data-target="tab-reportcard">Report Card</div>
+        </div>
+
+        <!-- Overview tab: Pie chart + stats -->
+        <div id="tab-overview" class="tab-content active" data-group="charts">
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header"><h3>Claim Categories Distribution</h3></div>
+                    <div class="card-body">
+                        <div class="chart-container" style="height:350px">
+                            <canvas id="pie-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>Validity by Product</h3></div>
+                    <div class="card-body">
+                        <div class="chart-container" style="height:350px">
+                            <canvas id="bias-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network tab -->
+        <div id="tab-network" class="tab-content" data-group="charts">
+            <div class="card">
+                <div class="card-header"><h3>Ingredient &rarr; Claim Type Network</h3></div>
+                <div class="card-body">
+                    <div id="network-chart" class="network-container"></div>
+                    <p style="font-size:12px;color:var(--ss-gray-400);margin-top:8px">
+                        Green nodes = ingredients &bull; Blue nodes = claim categories &bull; Lines show ingredient-claim relationships from enrichment data
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Word cloud tab -->
+        <div id="tab-wordcloud" class="tab-content" data-group="charts">
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header"><h3 style="color:var(--ss-green)">&#10003; Valid Claim Keywords</h3></div>
+                    <div class="card-body">
+                        <div id="wordcloud-valid" class="wordcloud-container"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3 style="color:var(--ss-red)">&#10007; Invalid Claim Keywords</h3></div>
+                    <div class="card-body">
+                        <div id="wordcloud-invalid" class="wordcloud-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bias / Product analysis tab -->
+        <div id="tab-bias" class="tab-content" data-group="charts">
+            <div class="card">
+                <div class="card-header"><h3>Claim Validity Bias by Product &amp; Brand</h3></div>
+                <div class="card-body">
+                    <div class="chart-container" style="height:400px">
+                        <canvas id="bias-chart-full"></canvas>
+                    </div>
+                    <p style="font-size:12px;color:var(--ss-gray-400);margin-top:8px">
+                        Shows claim validity distribution per product. Higher red bars may indicate brands with systematic marketing overreach.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report card tab -->
+        <div id="tab-reportcard" class="tab-content" data-group="charts">
+            <div class="card">
+                <div class="card-header"><h3>Aggregate Product Truth Report Card</h3></div>
+                <div class="card-body">
+                    <div class="grid-2">
+                        <div class="chart-container" style="height:350px">
+                            <canvas id="reportcard-chart"></canvas>
+                        </div>
+                        <div style="display:flex;flex-direction:column;justify-content:center;gap:16px">
+                            <div style="padding:20px;background:var(--ss-gray-50);border-radius:8px">
+                                <h4 style="font-size:14px;font-weight:600;margin-bottom:12px">Grading Scale</h4>
+                                <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+                                    <div><span style="color:var(--ss-green);font-weight:700">A</span> — Excellent: Claims are truthful, substantiated, and compliant</div>
+                                    <div><span style="color:#3B82F6;font-weight:700">B</span> — Good: Minor improvements needed</div>
+                                    <div><span style="color:var(--ss-orange);font-weight:700">C</span> — Fair: Several claims need revision</div>
+                                    <div><span style="color:#F97316;font-weight:700">D</span> — Poor: Significant compliance issues</div>
+                                    <div><span style="color:var(--ss-red);font-weight:700">F</span> — Failing: Critical regulatory violations</div>
+                                </div>
+                            </div>
+                            <div style="padding:20px;background:var(--ss-blue-pale);border-radius:8px">
+                                <h4 style="font-size:14px;font-weight:600;margin-bottom:8px">Evaluation Dimensions</h4>
+                                <ul style="font-size:13px;list-style:none;display:flex;flex-direction:column;gap:6px">
+                                    <li><strong>Ingredient Accuracy</strong> — Do ingredients support claims?</li>
+                                    <li><strong>Regulatory Compliance</strong> — FTC, FDA, EPA compliance</li>
+                                    <li><strong>Claim Substantiation</strong> — Evidence quality &amp; fit</li>
+                                    <li><strong>Consumer Transparency</strong> — Clear, non-deceptive messaging</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer style="text-align:center;padding:40px 0 24px;color:var(--ss-gray-400);font-size:12px">
+        <p>Marketing Claims Product Truth Evaluation Suite &bull; Powered by SmarterSorting Enrichment &amp; AI</p>
+        <p style="margin-top:4px">Regulatory references: FTC Act &sect;5, FDA 21 CFR 701/740/330, EPA FIFRA, CPSC</p>
+    </footer>
+
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
