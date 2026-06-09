@@ -18,14 +18,7 @@ def execute_prompt(platform_id, prompt, config):
         return _post_json(config["base_url"], config["api_key"], payload)
 
     if platform_id == "CLAUDE":
-        payload = _build_claude_payload(prompt, config.get("model"))
-        return _post_json(
-            config["base_url"],
-            config["api_key"],
-            payload,
-            extra_headers={"anthropic-version": "2023-06-01"},
-            auth_header="x-api-key",
-        )
+        return _execute_claude_vertex(prompt, config.get("model"))
 
     if platform_id == "GEMINI":
         raise ValueError("GEMINI requests use google-genai; call execute_gemini_prompt.")
@@ -85,6 +78,30 @@ def _build_claude_payload(prompt, model, max_tokens=1024):
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}],
     }
+
+
+def _execute_claude_vertex(prompt, model, max_tokens=1024):
+    # Send a prompt to Claude on Vertex AI via keyless ADC and return raw JSON.
+    # Returns a JSON string in the Anthropic Messages response shape so the
+    # downstream content[] extractor keeps working unchanged.
+    try:
+        from anthropic import AnthropicVertex
+    except ImportError as exc:
+        raise ValueError(
+            "Missing anthropic[vertex]. Install with: pip install -q -U 'anthropic[vertex]'"
+        ) from exc
+
+    model = (model or "claude-sonnet-4-6").strip()
+    client = AnthropicVertex(
+        project_id=os.environ.get("VERTEX_PROJECT_ID", "ss-vertex-ai"),
+        region=os.environ.get("VERTEX_REGION", "global"),
+    )
+    message = client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return message.model_dump_json()
 
 
 def _extract_genai_text(response):

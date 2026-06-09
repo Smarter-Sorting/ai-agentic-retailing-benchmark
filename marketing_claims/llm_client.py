@@ -1,58 +1,51 @@
-"""LLM client abstraction for Anthropic Claude and Google Gemini APIs."""
+"""LLM client abstraction for Anthropic Claude (on Vertex AI) and Google Gemini APIs."""
 
 import json
 import logging
+import os
 import urllib.request
 import urllib.error
+
+from anthropic import AnthropicVertex
 
 logger = logging.getLogger(__name__)
 
 
-def evaluate_with_anthropic(prompt, api_key, model=None):
-    """Send evaluation prompt to Anthropic Claude API.
+def evaluate_with_anthropic(prompt, api_key=None, model=None):
+    """Send evaluation prompt to Claude on Google Vertex AI.
+
+    Uses keyless Application Default Credentials (ADC) via the AnthropicVertex
+    SDK. The calling identity needs roles/aiplatform.user on the Vertex project.
 
     Args:
         prompt: The complete evaluation prompt.
-        api_key: Anthropic API key.
-        model: Model ID (defaults to claude-sonnet-4-20250514).
+        api_key: Retained for backward compatibility; ignored (Vertex uses ADC).
+        model: Model ID (defaults to claude-sonnet-4-6).
 
     Returns:
         dict with response text or error.
     """
-    model = model or "claude-sonnet-4-20250514"
-    url = "https://api.anthropic.com/v1/messages"
-
-    payload = {
-        "model": model,
-        "max_tokens": 4096,
-        "messages": [{"role": "user", "content": prompt}],
-    }
-
-    headers = {
-        "Content-Type": "application/json",
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
-    }
-
-    body = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    model = model or "claude-sonnet-4-6"
 
     try:
-        with urllib.request.urlopen(request, timeout=120) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            # Extract text from Claude response
-            text = ""
-            for block in data.get("content", []):
-                if block.get("type") == "text":
-                    text += block.get("text", "")
-            return {"success": True, "text": text, "raw": data}
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace") if exc.fp else str(exc)
-        logger.error("Anthropic API error %s: %s", exc.code, detail)
-        return {"success": False, "error": f"Anthropic HTTP {exc.code}: {detail}"}
+        client = AnthropicVertex(
+            project_id=os.environ.get("VERTEX_PROJECT_ID", "ss-vertex-ai"),
+            region=os.environ.get("VERTEX_REGION", "global"),
+        )
+        message = client.messages.create(
+            model=model,
+            max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        # Extract text from Claude response
+        text = ""
+        for block in message.content:
+            if getattr(block, "type", None) == "text":
+                text += getattr(block, "text", "") or ""
+        return {"success": True, "text": text, "raw": message.model_dump()}
     except Exception as exc:
-        logger.error("Anthropic API unexpected error: %s", exc)
-        return {"success": False, "error": str(exc)}
+        logger.error("Vertex Anthropic API error: %s", exc)
+        return {"success": False, "error": f"Vertex Anthropic error: {exc}"}
 
 
 def evaluate_with_gemini(prompt, api_key, model=None):

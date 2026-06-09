@@ -122,7 +122,7 @@ def _build_claude_response(analysis_json):
         "content": [
             {"type": "text", "text": json.dumps(analysis_json, indent=2)}
         ],
-        "model": "claude-sonnet-4-20250514",
+        "model": "claude-sonnet-4-6",
         "stop_reason": "end_turn",
         "usage": {"input_tokens": 1500, "output_tokens": 800},
     }
