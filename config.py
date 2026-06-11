@@ -22,6 +22,12 @@ def load_platform_config(platform_id, env):
     base_url = _clean_env_value(env.get(f"{key_prefix}_BASE_URL"))
     api_key = _clean_env_value(env.get(f"{key_prefix}_API_KEY"))
     model = _clean_env_value(env.get(f"{key_prefix}_MODEL"))
+    # CLAUDE runs on Vertex AI via keyless ADC: no API key or base URL needed,
+    # only a model id. Configure it whenever a model is set.
+    if _uses_keyless_sdk(platform_id):
+        if not model:
+            return None
+        return {"base_url": base_url, "api_key": api_key, "model": model}
     if not api_key:
         return None
     if _requires_base_url(platform_id) and not base_url:
@@ -29,6 +35,11 @@ def load_platform_config(platform_id, env):
     if api_key.startswith("Bearer "):
         api_key = api_key[len("Bearer ") :]
     return {"base_url": base_url, "api_key": api_key, "model": model}
+
+
+def _uses_keyless_sdk(platform_id):
+    # CLAUDE (Vertex AI, keyless ADC) is SDK-backed and needs no API key.
+    return platform_id.upper() == "CLAUDE"
 
 
 def _clean_env_value(value):
@@ -42,5 +53,5 @@ def _clean_env_value(value):
 
 
 def _requires_base_url(platform_id):
-    # Gemini uses the genai SDK, others require HTTP base URL.
-    return platform_id.upper() != "GEMINI"
+    # Gemini (genai SDK) and Claude (Vertex SDK) are SDK-backed; others need a base URL.
+    return platform_id.upper() not in ("GEMINI", "CLAUDE")

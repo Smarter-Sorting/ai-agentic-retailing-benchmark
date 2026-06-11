@@ -138,16 +138,23 @@ class TestEnrichmentClient(unittest.TestCase):
 class TestLLMClient(unittest.TestCase):
     """Test the LLM client with mocked HTTP calls."""
 
-    @patch("marketing_claims.llm_client.urllib.request.urlopen")
-    def test_anthropic_success(self, mock_urlopen):
+    @patch("marketing_claims.llm_client.AnthropicVertex")
+    def test_anthropic_success(self, mock_vertex):
         from ..llm_client import evaluate_with_anthropic
 
         api_response = get_stub_claude_api_response("041100001214")
-        mock_response = MagicMock()
-        mock_response.read.return_value = json.dumps(api_response).encode("utf-8")
-        mock_response.__enter__ = lambda s: s
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_urlopen.return_value = mock_response
+        text = api_response["content"][0]["text"]
+
+        # Build a fake Anthropic Message with a single text block.
+        text_block = MagicMock()
+        text_block.type = "text"
+        text_block.text = text
+        message = MagicMock()
+        message.content = [text_block]
+        message.model_dump.return_value = api_response
+
+        client = mock_vertex.return_value
+        client.messages.create.return_value = message
 
         result = evaluate_with_anthropic("test prompt", "test-key")
         self.assertTrue(result["success"])
@@ -168,16 +175,12 @@ class TestLLMClient(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertIn("overall_verdict", result["text"])
 
-    @patch("marketing_claims.llm_client.urllib.request.urlopen")
-    def test_anthropic_http_error(self, mock_urlopen):
+    @patch("marketing_claims.llm_client.AnthropicVertex")
+    def test_anthropic_error(self, mock_vertex):
         from ..llm_client import evaluate_with_anthropic
-        import urllib.error
 
-        error = urllib.error.HTTPError(
-            url="http://test", code=429, msg="Rate limited",
-            hdrs={}, fp=io.BytesIO(b"Too many requests"),
-        )
-        mock_urlopen.side_effect = error
+        client = mock_vertex.return_value
+        client.messages.create.side_effect = RuntimeError("429 Rate limited")
 
         result = evaluate_with_anthropic("test", "test-key")
         self.assertFalse(result["success"])
